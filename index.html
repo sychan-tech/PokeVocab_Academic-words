@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PokeVocab: Academic Word Catcher</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@700;900&display=swap');
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #3B4CCA; /* Pokemon Blue */
+            color: white;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        .title-font {
+            font-family: 'Press Start 2P', cursive;
+            color: #FFDE00; /* Pokemon Yellow */
+            text-shadow: 2px 2px 0 #3B4CCA, -2px -2px 0 #3B4CCA, 2px -2px 0 #3B4CCA, -2px 2px 0 #3B4CCA, 4px 4px 0 #CC0000;
+        }
+
+        .pixel-border {
+            box-shadow: 
+                -4px 0 0 0 white,
+                4px 0 0 0 white,
+                0 -4px 0 0 white,
+                0 4px 0 0 white;
+            border-radius: 4px;
+        }
+
+        #game-canvas {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* Pokeball Loading Animation */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid white;
+            border-top: 5px solid #CC0000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Screen 1: Main Menu -->
+    <div id="screen-menu" class="ui-layer interactive bg-[#3B4CCA] bg-opacity-95 z-50">
+        <h1 class="title-font text-3xl md:text-5xl text-center mb-8 px-4 leading-tight">
+            POKEVOCAB<br><span class="text-xl md:text-2xl text-white drop-shadow-md">Academic Catcher</span>
+        </h1>
+        <div class="bg-white text-black p-6 rounded-xl shadow-2xl max-w-md w-full mx-4 pixel-border">
+            <p class="text-center mb-6 font-bold text-gray-700">Wave your hands to catch the correct ACADEMIC word and save 20 Pokémon!</p>
+            
+            <div class="space-y-4">
+                <input type="text" id="player-name" placeholder="Enter your trainer name..." class="w-full p-3 border-4 border-blue-500 rounded-lg text-lg font-bold focus:outline-none focus:border-red-500 transition-colors">
+                
+                <div class="flex space-x-2">
+                    <button id="btn-create" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-[0_4px_0_#990000] active:translate-y-1 active:shadow-none transition-all">
+                        Create Room
+                    </button>
+                    <button id="btn-join" class="flex-1 bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold py-3 px-4 rounded-lg shadow-[0_4px_0_#B39B00] active:translate-y-1 active:shadow-none transition-all">
+                        Join Room
+                    </button>
+                </div>
+                
+                <input type="text" id="room-code-input" placeholder="Room Code (to join)" class="w-full p-3 border-4 border-gray-300 rounded-lg text-lg font-bold text-center uppercase hidden">
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen 2: Lobby -->
+    <div id="screen-lobby" class="ui-layer interactive bg-[#3B4CCA] bg-opacity-95 z-40 hidden">
+        <div class="bg-white text-black p-8 rounded-xl shadow-2xl max-w-md w-full mx-4 pixel-border text-center">
+            <h2 class="title-font text-2xl mb-2 text-blue-600">Training Camp</h2>
+            <p class="text-lg font-bold mb-4">Room Code: <span id="display-room-code" class="text-red-600 text-2xl bg-gray-100 px-3 py-1 rounded select-all"></span></p>
+            
+            <div class="bg-blue-50 p-4 rounded-lg mb-6">
+                <h3 class="font-bold text-gray-700 mb-2">Trainers Joined (<span id="player-count">1</span>)</h3>
+                <ul id="player-list" class="text-left font-bold text-blue-900 max-h-40 overflow-y-auto space-y-1">
+                    <!-- Players injected here -->
+                </ul>
+            </div>
+            
+            <div id="camera-status" class="mb-4 text-sm font-bold text-orange-500 flex flex-col items-center">
+                <div class="spinner mb-2 border-orange-500 border-top-white"></div>
+                Starting Camera & MediaPipe...
+            </div>
+
+            <button id="btn-start" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-[0_4px_0_#008000] active:translate-y-1 active:shadow-none transition-all opacity-50 cursor-not-allowed" disabled>
+                Start Mission!
+            </button>
+            <p id="wait-host-msg" class="text-sm text-gray-500 mt-2 hidden">Waiting for host to start...</p>
+        </div>
+    </div>
+
+    <!-- Screen 3: Game Over -->
+    <div id="screen-game-over" class="ui-layer interactive bg-black bg-opacity-80 z-50 hidden">
+        <div class="bg-white text-black p-8 rounded-xl shadow-2xl max-w-lg w-full mx-4 pixel-border text-center">
+            <h2 class="title-font text-3xl mb-4 text-yellow-500">Mission Accomplished!</h2>
+            <p class="text-xl font-bold mb-6">Your team saved 20 Pokémon in <span id="final-time" class="text-red-600">00:00</span>!</p>
+            
+            <h3 class="font-bold text-gray-700 mb-2 title-font text-sm">Trainer Contributions</h3>
+            <div class="bg-gray-100 p-4 rounded-lg mb-6 max-h-60 overflow-y-auto">
+                <table class="w-full text-left font-bold">
+                    <thead><tr class="text-blue-600 border-b-2 border-blue-200"><th class="pb-2">Trainer</th><th class="pb-2 text-right">Caught</th></tr></thead>
+                    <tbody id="leaderboard-body">
+                        <!-- Leaderboard injected here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-[0_4px_0_#003399] active:translate-y-1 active:shadow-none transition-all">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Canvas & HUD -->
+    <canvas id="game-canvas"></canvas>
+    <video id="webcam-video" class="hidden" autoplay playsinline></video>
+    
+    <div id="hud" class="ui-layer z-30 hidden pointer-events-none justify-between items-start p-4">
+        <!-- Target Word Panel -->
+        <div class="bg-white border-4 border-blue-600 rounded-xl p-4 shadow-lg text-center self-start mt-4 mx-auto w-full max-w-xl pointer-events-auto opacity-95">
+            <p class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">Find the academic word for:</p>
+            <h2 id="target-word" class="text-3xl md:text-4xl font-black text-red-600 title-font">WORD</h2>
+        </div>
+
+        <!-- Stats overlay top left/right -->
+        <div class="absolute top-4 left-4 bg-white border-4 border-yellow-400 rounded-lg p-3 shadow-lg pointer-events-auto flex flex-col items-center">
+            <p class="text-xs font-bold text-gray-500 mb-1">TEAM SAVED</p>
+            <p class="text-2xl font-black text-blue-600"><span id="score-display">0</span>/20</p>
+        </div>
+        
+        <div class="absolute top-4 right-4 bg-white border-4 border-green-500 rounded-lg p-3 shadow-lg pointer-events-auto flex flex-col items-center">
+            <p class="text-xs font-bold text-gray-500 mb-1">TIME</p>
+            <p id="timer-display" class="text-2xl font-black text-black title-font">00:00</p>
+        </div>
+
+        <!-- Mini Leaderboard (Live) -->
+        <div class="absolute bottom-4 right-4 bg-black bg-opacity-60 text-white rounded-lg p-3 shadow-lg pointer-events-auto w-48 text-sm">
+            <p class="font-bold border-b border-gray-400 pb-1 mb-2 text-yellow-300">Team Contributions</p>
+            <ul id="live-leaderboard" class="space-y-1 max-h-32 overflow-y-auto">
+                <!-- Live ranks injected here -->
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration (from environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'poke-vocab-default';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            // Mock config for local structure testing if not provided
+            apiKey: "mock-key", projectId: "mock-project" 
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Vocabulary mapping based on the provided PDF
+        const vocabularyData = [
+            { simple: "called", academic: "defined", distractor: "named" },
+            { simple: "level", academic: "phase", distractor: "step" },
+            { simple: "deep", academic: "intense", distractor: "strong" },
+            { simple: "picture", academic: "image", distractor: "drawing" },
+            { simple: "unimportant", academic: "trivial", distractor: "small" },
+            { simple: "do", academic: "attempt", distractor: "attend" },
+            { simple: "feelings", academic: "perceptions", distractor: "emotions" },
+            { simple: "the whole world", academic: "globe", distractor: "earth" },
+            { simple: "causing", academic: "induced", distractor: "making" },
+            { simple: "use", academic: "utilise", distractor: "apply", bothCorrect: true },
+            { simple: "like", academic: "similar", distractor: "same" },
+            { simple: "make", academic: "produce", distractor: "build" },
+            { simple: "help", academic: "aid", distractor: "assist", bothCorrect: true },
+            { simple: "put", academic: "incorporate", distractor: "insert" },
+            { simple: "drop", academic: "decline", distractor: "fall" },
+            { simple: "show", academic: "display", distractor: "present" },
+            { simple: "big", academic: "enormous", distractor: "huge" },
+            { simple: "idea", academic: "vision", distractor: "thought" },
+            { simple: "buy", academic: "purchase", distractor: "get" }
+        ];
+
+        // Shuffle questions
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        let gameState = {
+            userId: null,
+            playerName: "Trainer",
+            roomId: null,
+            isHost: false,
+            players: {},
+            roomStatus: 'waiting',
+            
+            // Game logic vars
+            cameraReady: false,
+            score: 0,
+            groupScore: 0,
+            startTime: null,
+            endTime: null,
+            targetX: 0.5, // Normalized X position from MediaPipe (0 to 1)
+            currentQuestionIndex: 0,
+            questions: shuffle([...vocabularyData]),
+            
+            // Falling entities
+            fallingItems: [],
+            savedPokemon: [],
+            lastFrameTime: 0
+        };
+
+        const imageCache = {};
+        function getRandomPokemonId() {
+            return Math.floor(Math.random() * 151) + 1; // Gen 1 Pokémon
+        }
+
+        function getPokemonImage(id) {
+            if (imageCache[id]) return imageCache[id];
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+            imageCache[id] = img;
+            return img;
+        }
+
+        // DOM Elements
+        const screens = {
+            menu: document.getElementById('screen-menu'),
+            lobby: document.getElementById('screen-lobby'),
+            gameOver: document.getElementById('screen-game-over'),
+            hud: document.getElementById('hud')
+        };
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const video = document.getElementById('webcam-video');
+
+        async function authenticate() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                gameState.userId = auth.currentUser.uid;
+                console.log("Authenticated with ID:", gameState.userId);
+            } catch (error) {
+                console.error("Auth error:", error);
+                showCustomModal("Authentication failed. Multiplayer features may not work.");
+            }
+        }
+
+        function generateRoomCode() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        function getRoomRef(roomId) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+        }
+
+        function getPlayerRef(roomId, playerId) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId, 'players', playerId);
+        }
+        function getPlayersColRef(roomId) {
+            return collection(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId, 'players');
+        }
+
+        // Custom modal to replace alerts
+        function showCustomModal(message) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4';
+            modal.innerHTML = `
+                <div class="bg-white p-6 rounded-xl border-4 border-red-500 max-w-sm w-full text-center text-black">
+                    <p class="font-bold text-lg mb-4">${message}</p>
+                    <button class="bg-red-500 text-white font-bold py-2 px-6 rounded hover:bg-red-600" onclick="this.parentElement.parentElement.remove()">OK</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function createRoom() {
+            if (!gameState.userId) return;
+            const nameInput = document.getElementById('player-name').value.trim();
+            if (!nameInput) { showCustomModal("Please enter your trainer name!"); return; }
+            
+            gameState.playerName = nameInput;
+            gameState.roomId = generateRoomCode();
+            gameState.isHost = true;
+
+            const roomRef = getRoomRef(gameState.roomId);
+            await setDoc(roomRef, {
+                status: 'waiting',
+                createdAt: serverTimestamp(),
+                hostId: gameState.userId
+            });
+
+            await joinRoom(gameState.roomId, nameInput);
+        }
+
+        async function joinRoomBtnClick() {
+            const nameInput = document.getElementById('player-name').value.trim();
+            const roomInput = document.getElementById('room-code-input');
+            
+            if (roomInput.classList.contains('hidden')) {
+                roomInput.classList.remove('hidden');
+                return;
+            }
+
+            const code = roomInput.value.trim().toUpperCase();
+            if (!nameInput || !code) { showCustomModal("Please enter name and room code!"); return; }
+            
+            gameState.playerName = nameInput;
+            gameState.roomId = code;
+            
+            const roomRef = getRoomRef(gameState.roomId);
+            const snap = await getDoc(roomRef);
+            if (!snap.exists()) {
+                showCustomModal("Room not found!");
+                return;
+            }
+            
+            await joinRoom(gameState.roomId, nameInput);
+        }
+
+        async function joinRoom(roomId, playerName) {
+            if (!gameState.userId) return;
+            
+            const playerRef = getPlayerRef(roomId, gameState.userId);
+            await setDoc(playerRef, {
+                name: playerName,
+                score: 0,
+                time: null,
+                joinedAt: serverTimestamp()
+            });
+
+            screens.menu.classList.add('hidden');
+            screens.lobby.classList.remove('hidden');
+            document.getElementById('display-room-code').innerText = roomId;
+
+            if (!gameState.isHost) {
+                document.getElementById('btn-start').classList.add('hidden');
+                document.getElementById('wait-host-msg').classList.remove('hidden');
+            }
+
+            listenToRoom(roomId);
+            initMediaPipe(); // Start camera while in lobby
+        }
+
+        let roomUnsubscribe = null;
+        let playersUnsubscribe = null;
+
+        function listenToRoom(roomId) {
+            const roomRef = getRoomRef(roomId);
+            roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    gameState.roomStatus = data.status;
+                    if (data.status === 'playing' && gameState.startTime === null) {
+                        gameState.startTime = data.startTime ? data.startTime.toMillis() : Date.now();
+                        startGame();
+                    } else if (data.status === 'finished' && screens.gameOver.classList.contains('hidden')) {
+                        const st = data.startTime ? data.startTime.toMillis() : gameState.startTime;
+                        const et = data.endTime ? data.endTime.toMillis() : Date.now();
+                        triggerWin(st, et);
+                    }
+                }
+            }, (error) => console.error("Room sync error:", error));
+
+            const playersCol = getPlayersColRef(roomId);
+            playersUnsubscribe = onSnapshot(query(playersCol), (querySnapshot) => {
+                gameState.players = {};
+                let totalScore = 0;
+                
+                querySnapshot.forEach((doc) => {
+                    const pData = doc.data();
+                    gameState.players[doc.id] = pData;
+                    totalScore += (pData.score || 0);
+                });
+                
+                gameState.groupScore = totalScore;
+                const scoreDisplay = document.getElementById('score-display');
+                if (scoreDisplay) scoreDisplay.innerText = totalScore;
+
+                updateLobbyUI();
+                updateLiveLeaderboard();
+
+                // Host checks for group win condition
+                if (totalScore >= 20 && gameState.isHost && gameState.roomStatus === 'playing') {
+                    endGameForRoom();
+                }
+
+            }, (error) => console.error("Players sync error:", error));
+        }
+
+        async function endGameForRoom() {
+            if (!gameState.isHost || !gameState.roomId) return;
+            const roomRef = getRoomRef(gameState.roomId);
+            await updateDoc(roomRef, {
+                status: 'finished',
+                endTime: serverTimestamp()
+            });
+        }
+
+        function updateLobbyUI() {
+            const list = document.getElementById('player-list');
+            list.innerHTML = '';
+            const playerIds = Object.keys(gameState.players);
+            document.getElementById('player-count').innerText = playerIds.length;
+            
+            playerIds.forEach(id => {
+                const p = gameState.players[id];
+                const li = document.createElement('li');
+                li.className = "flex items-center space-x-2";
+                li.innerHTML = `<span class="text-xl">👤</span> <span>${p.name} ${id === gameState.userId ? '(You)' : ''}</span>`;
+                list.appendChild(li);
+            });
+        }
+
+        async function updatePlayerProgress(score, finishTime = null) {
+            if (!gameState.userId || !gameState.roomId) return;
+            const playerRef = getPlayerRef(gameState.roomId, gameState.userId);
+            try {
+                await updateDoc(playerRef, {
+                    score: score,
+                    time: finishTime
+                });
+            } catch(e) {
+                console.error("Score sync error", e);
+            }
+        }
+
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                // Get X coordinate of the middle finger MCP (knuckle) or Index finger tip
+                const landmark = results.multiHandLandmarks[0][9]; 
+                
+                // Mirror the X coordinate because the video is mirrored to the user
+                gameState.targetX = 1 - landmark.x; 
+            }
+        });
+
+        let camera = null;
+        async function initMediaPipe() {
+            try {
+                camera = new Camera(video, {
+                    onFrame: async () => {
+                        await hands.send({image: video});
+                    },
+                    width: 640,
+                    height: 480
+                });
+                await camera.start();
+                
+                // Update UI once camera is ready
+                gameState.cameraReady = true;
+                const statusDiv = document.getElementById('camera-status');
+                statusDiv.innerHTML = `<span class="text-green-500">✅ Camera & Hand Tracking Ready!</span>`;
+                
+                if (gameState.isHost) {
+                    const btnStart = document.getElementById('btn-start');
+                    btnStart.disabled = false;
+                    btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                
+                // Start drawing loop even in lobby to show background
+                requestAnimationFrame(gameLoop);
+
+            } catch (error) {
+                console.error("Camera setup failed:", error);
+                document.getElementById('camera-status').innerHTML = `<span class="text-red-500">❌ Camera failed. Using mouse fallback.</span>`;
+                gameState.cameraReady = true; // allow start anyway with fallback
+                if (gameState.isHost) {
+                    const btnStart = document.getElementById('btn-start');
+                    btnStart.disabled = false;
+                    btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                
+                // Mouse fallback
+                window.addEventListener('mousemove', (e) => {
+                    gameState.targetX = e.clientX / window.innerWidth;
+                });
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        async function hostStartGame() {
+            if (!gameState.isHost || !gameState.roomId) return;
+            const roomRef = getRoomRef(gameState.roomId);
+            await updateDoc(roomRef, {
+                status: 'playing',
+                startTime: serverTimestamp()
+            });
+        }
+
+        function startGame() {
+            screens.lobby.classList.add('hidden');
+            screens.hud.classList.remove('hidden');
+            canvas.style.display = 'block';
+            
+            // Resize canvas
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            gameState.startTime = Date.now();
+            gameState.score = 0;
+            gameState.currentQuestionIndex = 0;
+            gameState.savedPokemon = [];
+            
+            spawnNextQuestion();
+            
+            // Start timer interval
+            setInterval(updateTimerUI, 1000);
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function spawnNextQuestion() {
+            if (gameState.currentQuestionIndex >= gameState.questions.length) {
+                // Wrap around if they somehow need more, but game ends at 20.
+                gameState.currentQuestionIndex = 0;
+            }
+            
+            const q = gameState.questions[gameState.currentQuestionIndex];
+            document.getElementById('target-word').innerText = q.simple;
+
+            // Spawn two falling items
+            const isAcademicLeft = Math.random() > 0.5;
+            
+            const speed = window.innerHeight * 0.003; // Dynamic speed based on screen height
+            const radius = Math.min(window.innerWidth * 0.1, 50);
+
+            const p1Id = getRandomPokemonId();
+            const p2Id = getRandomPokemonId();
+
+            gameState.fallingItems = [
+                {
+                    x: window.innerWidth * 0.25,
+                    y: -100,
+                    text: isAcademicLeft ? q.academic : q.distractor,
+                    isCorrect: isAcademicLeft || q.bothCorrect === true,
+                    speed: speed,
+                    radius: radius,
+                    pokemonImg: getPokemonImage(p1Id)
+                },
+                {
+                    x: window.innerWidth * 0.75,
+                    y: -100,
+                    text: !isAcademicLeft ? q.academic : q.distractor,
+                    isCorrect: !isAcademicLeft || q.bothCorrect === true,
+                    speed: speed,
+                    radius: radius,
+                    pokemonImg: getPokemonImage(p2Id)
+                }
+            ];
+        }
+
+        let playerCatcher = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight - 120,
+            width: 140,
+            height: 100
+        };
+
+        function gameLoop(timestamp) {
+            const dt = timestamp - gameState.lastFrameTime;
+            gameState.lastFrameTime = timestamp;
+
+            updatePhysics();
+            drawFrame();
+            
+            if (gameState.roomStatus !== 'finished') {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function updatePhysics() {
+            if (gameState.roomStatus !== 'playing') return;
+
+            // Smooth player movement towards targetX
+            const targetPixelX = gameState.targetX * canvas.width;
+            playerCatcher.x += (targetPixelX - playerCatcher.x) * 0.15; // LERP
+            playerCatcher.y = canvas.height - 100; // Keep at bottom dynamically
+
+            // Prevent out of bounds
+            playerCatcher.x = Math.max(playerCatcher.width/2, Math.min(canvas.width - playerCatcher.width/2, playerCatcher.x));
+
+            // Update falling items
+            for (let i = 0; i < gameState.fallingItems.length; i++) {
+                let item = gameState.fallingItems[i];
+                item.y += item.speed;
+
+                // Collision detection (Circle to Rectangle)
+                const distX = Math.abs(item.x - playerCatcher.x);
+                const distY = Math.abs(item.y - playerCatcher.y);
+
+                if (distX < (playerCatcher.width/2 + item.radius) && distY < (playerCatcher.height/2 + item.radius)) {
+                    // Collision!
+                    if (item.isCorrect) {
+                        // Save the pokemon to display on the grass
+                        gameState.savedPokemon.push({
+                            img: item.pokemonImg,
+                            x: Math.random() * (canvas.width - 80) + 40,
+                            y: canvas.height - 30 + (Math.random() * 20 - 10)
+                        });
+
+                        gameState.score++;
+                        updatePlayerProgress(gameState.score);
+                        gameState.currentQuestionIndex++;
+                        spawnNextQuestion();
+                    } else {
+                        // Wrong item caught, respawn same question
+                        spawnNextQuestion();
+                    }
+                    break; // stop processing items this frame
+                }
+
+                // Missed items
+                if (item.y > canvas.height + item.radius) {
+                    // Respawn same question
+                    spawnNextQuestion();
+                    break;
+                }
+            }
+        }
+
+        function drawFrame() {
+            // Draw Background (Sky + Grass)
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw clouds (simple circles)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(canvas.width * 0.2, canvas.height * 0.2, 40, 0, Math.PI * 2);
+            ctx.arc(canvas.width * 0.25, canvas.height * 0.22, 50, 0, Math.PI * 2);
+            ctx.arc(canvas.width * 0.3, canvas.height * 0.2, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(canvas.width * 0.7, canvas.height * 0.15, 30, 0, Math.PI * 2);
+            ctx.arc(canvas.width * 0.75, canvas.height * 0.18, 45, 0, Math.PI * 2);
+            ctx.arc(canvas.width * 0.8, canvas.height * 0.15, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Grass bottom
+            ctx.fillStyle = '#7CFC00';
+            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
+            drawSavedPokemon();
+
+            if (gameState.roomStatus === 'playing') {
+                drawCatcher();
+                drawItems();
+                drawVideoOverlay();
+            }
+        }
+
+        function drawSavedPokemon() {
+            gameState.savedPokemon.forEach(sp => {
+                if (sp.img && sp.img.complete) {
+                    ctx.drawImage(sp.img, sp.x - 40, sp.y - 40, 80, 80);
+                }
+            });
+        }
+
+        function drawCatcher() {
+            // Draw Pokeball styled catcher basket
+            const cx = playerCatcher.x;
+            const cy = playerCatcher.y;
+            const w = playerCatcher.width;
+            const h = playerCatcher.height;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            // Top Red Half (Basket back)
+            ctx.fillStyle = '#CC0000';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, w/2, h/2, 0, Math.PI, 0);
+            ctx.fill();
+            
+            // Bottom White Half
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, w/2, h/2, 0, 0, Math.PI);
+            ctx.fill();
+            
+            // Black Line & Button
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, w/2, h/2, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(-w/2, 0);
+            ctx.lineTo(w/2, 0);
+            ctx.stroke();
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawItems() {
+            gameState.fallingItems.forEach(item => {
+                // Draw Bubble/Ball
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                
+                // Draw Pokemon Sprite
+                if (item.pokemonImg && item.pokemonImg.complete) {
+                    const size = item.radius * 2.5; 
+                    ctx.drawImage(item.pokemonImg, -size/2, -size/2, size, size);
+                } else {
+                    // Fallback placeholder while loading
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, item.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw Text Plate
+                ctx.font = `bold ${Math.max(16, item.radius * 0.4)}px Nunito`;
+                const textMetrics = ctx.measureText(item.text);
+                const textWidth = textMetrics.width + 24;
+                
+                const rx = -textWidth/2;
+                const ry = item.radius * 0.8;
+                const rw = textWidth;
+                const rh = 30;
+                const r = 10;
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(rx + r, ry);
+                ctx.lineTo(rx + rw - r, ry);
+                ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + r);
+                ctx.lineTo(rx + rw, ry + rh - r);
+                ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - r, ry + rh);
+                ctx.lineTo(rx + r, ry + rh);
+                ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - r);
+                ctx.lineTo(rx, ry + r);
+                ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#3B4CCA';
+                ctx.stroke();
+
+                ctx.fillStyle = '#CC0000';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.text, 0, ry + rh/2);
+
+                ctx.restore();
+            });
+        }
+        
+        function drawVideoOverlay() {
+            // Draw a tiny semi-transparent mirrored video in bottom left so player knows camera works
+            if(video.readyState === video.HAVE_ENOUGH_DATA) {
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.translate(10 + 160, canvas.height - 120 - 10);
+                ctx.scale(-1, 1); // Mirror
+                ctx.drawImage(video, 0, 0, 160, 120);
+                ctx.restore();
+                
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(10, canvas.height - 120 - 10, 160, 120);
+            }
+        }
+
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimerUI() {
+            if (gameState.roomStatus === 'playing' && gameState.startTime) {
+                const elapsed = Date.now() - gameState.startTime;
+                document.getElementById('timer-display').innerText = formatTime(elapsed);
+            }
+        }
+
+        function updateLiveLeaderboard() {
+            const list = document.getElementById('live-leaderboard');
+            if(!list) return;
+            list.innerHTML = '';
+            
+            const sorted = Object.values(gameState.players).sort((a, b) => (b.score || 0) - (a.score || 0));
+            
+            sorted.forEach(p => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center bg-black bg-opacity-40 p-1 rounded";
+                li.innerHTML = `
+                    <span class="truncate w-24">${p.name}</span>
+                    <span class="text-yellow-400 font-bold">${p.score || 0}</span>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        async function triggerWin(startTime, endTime) {
+            const timeTaken = endTime - startTime;
+            
+            document.getElementById('final-time').innerText = formatTime(timeTaken);
+            screens.hud.classList.add('hidden');
+            screens.gameOver.classList.remove('hidden');
+            
+            populateFinalLeaderboard();
+        }
+
+        function populateFinalLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+            
+            // Sort by contribution (score)
+            const sorted = Object.values(gameState.players).sort((a, b) => (b.score || 0) - (a.score || 0));
+
+            sorted.forEach((p, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-200";
+                
+                let medal = '';
+                if(index === 0) medal = '🥇';
+                else if(index === 1) medal = '🥈';
+                else if(index === 2) medal = '🥉';
+
+                tr.innerHTML = `
+                    <td class="py-3 flex items-center gap-2">${medal} <span>${p.name}</span></td>
+                    <td class="py-3 text-right font-black title-font text-sm text-blue-600">${p.score || 0} Saved</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('btn-create').addEventListener('click', createRoom);
+        document.getElementById('btn-join').addEventListener('click', joinRoomBtnClick);
+        document.getElementById('btn-start').addEventListener('click', hostStartGame);
+
+        // Start Firebase Auth immediately
+        authenticate();
+
+    </script>
+</body>
+</html>
