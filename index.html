@@ -184,10 +184,25 @@
 
         // Firebase Configuration (from environment)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'poke-vocab-default';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            // Mock config for local structure testing if not provided
-            apiKey: "mock-key", projectId: "mock-project" 
-        };
+        <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyD_4xGJmhSzt7Ebt7MXbwlSMtyxbwjouaw",
+    authDomain: "pokevocab-51b9c.firebaseapp.com",
+    projectId: "pokevocab-51b9c",
+    storageBucket: "pokevocab-51b9c.firebasestorage.app",
+    messagingSenderId: "815492797079",
+    appId: "1:815492797079:web:ab94d4bc385ab615cf4fd2"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         const app = initializeApp(firebaseConfig);
