@@ -184,43 +184,25 @@
 
         // Firebase Configuration (from environment)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'poke-vocab-default';
-      // Firebase Configuration (from environment)
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'poke-vocab-default';
-    
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY_HERE", // Make sure your real key is here
-      authDomain: "pokevocab-51b9c.firebaseapp.com",
-      databaseURL: "https://pokevocab-51b9c-default-rtdb.firebaseio.com",
-      projectId: "pokevocab-51b9c",
-      storageBucket: "pokevocab-51b9c.firebasestorage.app",
-      messagingSenderId: "815492797079",
-      appId: "1:815492797079:web:ab94d4bc385ab615cf4fd2"
-    };
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyD_4xGJmhSzt7Ebt7MXbwlSMtyxbwjouaw",
+            authDomain: "pokevocab-51b9c.firebaseapp.com",
+            databaseURL: "https://pokevocab-51b9c-default-rtdb.firebaseio.com",
+            projectId: "pokevocab-51b9c",
+            storageBucket: "pokevocab-51b9c.firebasestorage.app",
+            messagingSenderId: "815492797079",
+            appId: "1:815492797079:web:ab94d4bc385ab615cf4fd2"
+        };
 
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-    
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyD_4xGJmhSzt7Ebt7MXbwlSMtyxbwjouaw",
-    authDomain: "pokevocab-51b9c.firebaseapp.com",
-    projectId: "pokevocab-51b9c",
-    storageBucket: "pokevocab-51b9c.firebasestorage.app",
-    messagingSenderId: "815492797079",
-    appId: "1:815492797079:web:ab94d4bc385ab615cf4fd2"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-</script>
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+
+        // Vocabulary mapping based on the provided PDF
+        const vocabularyData = [
 
         // Vocabulary mapping based on the provided PDF
         const vocabularyData = [
